@@ -1,0 +1,40 @@
+@startuml
+title Evolucion Arquitectonica — MVP → Fase 2 → Fase 3
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+package "MVP (Fase 1)" {
+  rectangle "RustFS + Parquet\nRaw/Bronze/Silver/Gold" as MVP_LAKE
+  rectangle "Dask Distributed" as MVP_DASK
+  rectangle "Postgres (Gold Serving)" as MVP_PG
+  rectangle "Prefect + Grafana" as MVP_OPS
+}
+
+package "Fase 2 (Lakehouse Transaccional)" {
+  rectangle "Iceberg / Delta\n+ Catalogo" as F2_LAKE
+  rectangle "Federated Query (Trino)" as F2_QUERY
+  rectangle "Auto-Scaling Compute" as F2_COMPUTE
+}
+
+package "Fase 3 (Industrializacion)" {
+  rectangle "Kubernetes\nMulti-Tenant" as F3_K8S
+  rectangle "Streaming (Kafka)\nBatch + RT" as F3_STREAM
+  rectangle "MLOps + Model Registry" as F3_ML
+  rectangle "Security + IAM + KMS" as F3_SEC
+  rectangle "Observabilidad Completa\n+ FinOps" as F3_OBS
+}
+
+MVP_LAKE --> F2_LAKE
+MVP_DASK --> F2_COMPUTE
+MVP_PG --> F2_QUERY
+
+F2_LAKE --> F3_K8S
+F2_QUERY --> F3_K8S
+F2_COMPUTE --> F3_STREAM
+
+F3_K8S --> F3_ML
+F3_K8S --> F3_SEC
+F3_K8S --> F3_OBS
+
+@enduml

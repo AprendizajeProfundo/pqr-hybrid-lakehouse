@@ -1,0 +1,93 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Raw Email Event",
+    "type": "object",
+    "required": [
+        "event_id",
+        "ingestion_timestamp",
+        "source",
+        "email"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "description": "Version of the RAW email schema",
+            "pattern": "^v[0-9]+\\.[0-9]+$"
+        },
+        "event_id": {
+            "type": "string",
+            "description": "Unique identifier for the ingestion event (UUID recommended)"
+        },
+        "ingestion_timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when event was ingested"
+        },
+        "source": {
+            "type": "string",
+            "description": "Source system identifier (e.g., synthetic, imap, api)"
+        },
+        "tenant_id": {
+            "type": "string",
+            "description": "Optional tenant identifier (future multi-tenant support)"
+        },
+        "email": {
+            "type": "object",
+            "required": [
+                "message_id",
+                "from",
+                "to",
+                "subject",
+                "body",
+                "received_timestamp"
+            ],
+            "properties": {
+                "message_id": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "cc": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "body": {
+                    "type": "string"
+                },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "filename": {
+                                "type": "string"
+                            },
+                            "content_type": {
+                                "type": "string"
+                            },
+                            "size_bytes": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                },
+                "received_timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            }
+        }
+    }
+}

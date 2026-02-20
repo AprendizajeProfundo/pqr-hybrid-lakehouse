@@ -1,0 +1,31 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title PQR Hybrid Lakehouse MVP - Diagrama de Contexto (C4 Nivel 1) v2
+
+Person(ds, "Cientifico/a de Datos", "Explora datasets Gold, valida calidad, evalua modelos IA y construye analisis reproducibles sobre PQRS.")
+Person(dev, "Desarrollador/a", "Implementa generadores, contratos de datos, pipelines (Prefect/Dask), componentes IA y automatizaciones de operacion.")
+Person(ops, "Operacion / DataOps", "Supervisa ejecuciones, SLAs/SLOs, incidentes, capacidad y confiabilidad del sistema; coordina reintentos y post-mortems.")
+Person(biz, "Lider de Negocio / Cliente", "Consume indicadores ejecutivos (SLA, backlog, tiempos, demanda), toma decisiones y prioriza acciones.")
+
+System(pqr, "PQR Hybrid Lakehouse MVP", "Plataforma hibrida containerizada para ingesta (email), lakehouse (Raw/Bronze/Silver/Gold), enriquecimiento con IA, analitica y observabilidad operativa; gobierno central en PostgreSQL (Supabase) y almacenamiento S3-compatible en RustFS.")
+
+System_Ext(emailReal, "Canal de Email Real (opcional)", "Proveedor IMAP/SMTP o API (p.ej., Microsoft Graph). En el MVP se simula la ingesta, pero se modela el punto de integracion.")
+System_Ext(notif, "Canales de Notificacion (opcional)", "Email/ChatOps (Slack/Teams) para alertas operativas, incidentes y avisos de SLA.")
+System_Ext(modelReg, "Registro de Modelos IA (opcional)", "Repositorio de versiones de modelos y artefactos (p.ej., MLflow/Registry). En el MVP se registra al menos model_version como metadato.")
+System_Ext(audit, "Repositorio de Evidencias / Auditoria (opcional)", "Destino externo para evidencias (p.ej., exportes firmados, snapshots, reportes). El MVP asegura trazabilidad via run_id/manifest/hashes.")
+System_Ext(extBI, "Consumidores Externos de Indicadores (opcional)", "Herramientas o areas que consumen KPIs por export/SQL (p.ej., reportes institucionales).")
+
+Rel(ds, pqr, "Analiza KPIs, valida calidad, compara corridas y evalua outputs IA (Silver/Gold)", "Web/SQL")
+Rel(dev, pqr, "Desarrolla componentes, ejecuta corridas, ajusta contratos y despliega cambios", "CLI/API")
+Rel(ops, pqr, "Monitorea operacion, gestiona alertas, reintentos y capacidad; verifica SLA/SLO", "Dashboards/Run UI")
+Rel(biz, pqr, "Consulta tableros ejecutivos y reportes; revisa backlog y cumplimiento de SLA", "Web")
+
+Rel(emailReal, pqr, "Entrega mensajes/eventos de correo (si se habilita integracion real)", "IMAP/SMTP/API (opcional)")
+Rel(pqr, notif, "Emite alertas operativas y notificaciones de SLA (si se habilita)", "Webhook/Email (opcional)")
+Rel(pqr, modelReg, "Consulta/declara versiones de modelos (si se habilita)", "API (opcional)")
+Rel(pqr, audit, "Publica evidencias (manifest, hashes, reportes) (si se habilita)", "Export/Storage (opcional)")
+Rel(pqr, extBI, "Expone KPIs (gold_*) para consumo externo (si se habilita)", "SQL/Export (opcional)")
+
+SHOW_LEGEND()
+@enduml

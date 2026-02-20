@@ -1,0 +1,25 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title PQR Hybrid Lakehouse MVP - Diagrama de Contexto (C4 Nivel 1)
+
+Person(ds, "Cientifico/a de Datos", "Explora datasets Gold, valida calidad y analiza KPIs y modelos.")
+Person(dev, "Desarrollador/a", "Implementa pipelines, contratos de datos, modelos IA y despliegues.")
+Person(ops, "Operacion / DataOps", "Monitorea ejecuciones, SLAs, rendimiento y fallos del sistema.")
+Person(biz, "Lider de Negocio / Cliente", "Consume tableros ejecutivos; revisa backlog y cumplimiento de SLA.")
+
+System(pqr, "PQR Hybrid Lakehouse MVP", "Sistema hibrido containerizado para ingestion, procesamiento Big Data y analitica de PQRS via canal email, con gobierno en PostgreSQL (Supabase) y almacenamiento lakehouse en RustFS (S3-compatible).")
+
+System_Ext(extEmail, "Canal Email Real (Opcional)", "Integracion IMAP/SMTP o API externa. En el MVP se simula la ingesta.")
+System_Ext(extAlert, "Canal de Alertas (Opcional)", "Email/ChatOps para notificaciones operativas.")
+
+Rel(ds, pqr, "Consulta KPIs y explora resultados", "Web/SQL")
+Rel(dev, pqr, "Desarrolla y opera pipelines", "CLI/API")
+Rel(ops, pqr, "Monitorea operacion y SLAs", "Dashboards")
+Rel(biz, pqr, "Revisa indicadores ejecutivos", "Web")
+
+Rel(extEmail, pqr, "Entrega eventos de correo (si se habilita integracion real)", "IMAP/API (opcional)")
+Rel(pqr, extAlert, "Emite alertas operativas (si se habilita)", "Webhook/Email (opcional)")
+
+SHOW_LEGEND()
+@enduml

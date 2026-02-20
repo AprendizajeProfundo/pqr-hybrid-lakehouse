@@ -1,0 +1,156 @@
+Sí: para tu stack (RustFS + Dask + Prefect + Prometheus/Grafana + Supabase/Postgres + Metabase + Streamlit + DuckDB/ClickHouse opcional) sí faltan varios patrones típicos. Abajo te dejo un .gitignore “nivel plataforma” que cubre todo lo del proyecto, sin comerse archivos que sí debes versionar (dashboards/provisioning, compose, contracts, etc.).
+
+.gitignore recomendado para PQR Hybrid Lakehouse (Windows + Mac + stack completo)
+
+Cópialo tal cual en la raíz del repo.
+
+##################################
+# OS / System
+##################################
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+##################################
+# Editors / IDE
+##################################
+.vscode/
+.idea/
+*.swp
+*.swo
+
+##################################
+# Python
+##################################
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.log
+
+##################################
+# Virtual envs
+##################################
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+##################################
+# Jupyter
+##################################
+.ipynb_checkpoints/
+
+##################################
+# Node / Frontend (si aplica)
+##################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+
+##################################
+# Secrets / Local env files
+##################################
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+
+##################################
+# Data / Lakehouse (NO versionar datasets)
+##################################
+data/lakehouse/
+lakehouse/
+raw/
+bronze/
+silver/
+gold/
+*.parquet
+*.jsonl
+*.csv
+*.tsv
+*.avro
+*.orc
+
+##################################
+# DuckDB / Local analytics artifacts
+##################################
+*.duckdb
+*.ddb
+*.db
+*.wal
+
+##################################
+# Dask (local worker space, spill, etc.)
+##################################
+dask-worker-space/
+*.part
+
+##################################
+# Prefect (cache y estado local)
+##################################
+.prefect/
+prefect.db
+.prefectignore
+
+##################################
+# Grafana / Prometheus runtime
+# (OJO: NO ignores dashboards/provisioning versionados)
+##################################
+grafana/data/
+grafana/log/
+prometheus/data/
+
+##################################
+# Metabase runtime
+##################################
+metabase/metabase.db
+metabase/data/
+
+##################################
+# Postgres / Supabase local runtime
+##################################
+postgres/data/
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+supabase/.cache/
+supabase/.seed.sql
+
+##################################
+# Docker runtime
+##################################
+**/tmp/
+tmp/
+temp/
+*.pid
+*.sock
+
+##################################
+# Terraform / IaC (si se usa en Fase 3)
+##################################
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+##################################
+# Misc
+##################################
+.DS_Store?

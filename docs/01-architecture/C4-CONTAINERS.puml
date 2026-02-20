@@ -1,0 +1,86 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title PQR Hybrid Lakehouse MVP - Diagrama de Contenedores (C4 Nivel 2) v2
+
+Person(ds, "Cientifico/a de Datos", "Explora datasets Gold, valida calidad y evalua outputs IA (Silver/Gold).")
+Person(dev, "Desarrollador/a", "Implementa pipelines, contratos, generador y componentes IA.")
+Person(ops, "Operacion / DataOps", "Monitorea ejecuciones, SLAs/SLOs, fallos y capacidad.")
+Person(biz, "Lider de Negocio / Cliente", "Consume indicadores ejecutivos (SLA, backlog, demanda, tiempos).")
+
+System_Boundary(sys, "PQR Hybrid Lakehouse MVP") {
+
+  ' =============================
+  ' CONTROL PLANE (Gobierno + Serving)
+  ' =============================
+  Container(supabase, "Supabase (Auth/API)", "Supabase + PostgreSQL", "Plano de control: autenticacion/RBAC, gobierno (meta.*), operacion PQRS (core.*) y capa de serving (gold_*).")
+  ContainerDb(pg, "PostgreSQL", "PostgreSQL", "Base transaccional y analitica ligera: meta.runs/lineage/checks, core.tickets/events/messages, tablas/vistas gold_* para BI.")
+
+  Rel(supabase, pg, "Lee/Escribe", "SQL")
+
+  ' =============================
+  ' DATA PLANE (Lakehouse S3)
+  ' =============================
+  Container(rustfs, "RustFS (S3-Compatible)", "RustFS", "Almacenamiento de objetos S3 para lakehouse: Raw (JSONL+manifest+hahes), Bronze/Silver/Gold (Parquet), adjuntos y evidencias por run_id.")
+
+  ' =============================
+  ' INGESTA / SIMULACION
+  ' =============================
+  Container(pqrgen, "Generador de Correos (Email Sintetico)", "Python CLI", "Genera eventos deterministas (seed+run_id) y escribe Raw en RustFS por particion (source/day/run_id).")
+
+  Rel(pqrgen, rustfs, "Escribe Raw (JSONL) + manifest", "S3 API")
+
+  ' =============================
+  ' ORQUESTACION
+  ' =============================
+  Container(prefect, "Prefect Server", "Prefect", "Orquestacion: define flows, dispara ejecuciones, retries, scheduling, tracking de estados y run metadata.")
+  Rel(prefect, pg, "Registra estado de corridas (opcional)", "SQL")
+
+  ' =============================
+  ' COMPUTE PLANE (Big Data + IA)
+  ' =============================
+  Container(daskScheduler, "Dask Scheduler", "Dask Distributed", "Planificador distribuido: coordina tareas y recursos.")
+  Container(daskWorkers, "Dask Workers", "Dask Distributed", "Ejecucion paralela: Raw->Bronze (tipado), Bronze->Silver (enriquecimiento IA), Silver->Gold (agregaciones).")
+
+  Container(aiExtract, "Servicio IA (Enriquecimiento Semantico)", "Python (LLM/NER)", "Componente de extraccion/clasificacion (PQRS, entidades, prioridad, resumen). Ejecutado dentro de tareas Dask o como microservicio invocable.")
+  Container(duckdb, "DuckDB (OLAP sobre Parquet)", "DuckDB", "Consultas analiticas sobre Parquet en RustFS; apoyo a agregaciones Gold y analitica ad-hoc para docencia.")
+
+  Rel(prefect, daskScheduler, "Dispara pipelines", "HTTP/SDK")
+  Rel(daskScheduler, daskWorkers, "Coordina ejecucion", "Dask protocol")
+
+  Rel(daskWorkers, rustfs, "Lee/Escribe Bronze/Silver/Gold", "S3 API")
+  Rel(daskWorkers, pg, "Carga gold_* y registra meta.*", "SQL (COPY/Bulk/INSERT)")
+
+  Rel(daskWorkers, aiExtract, "Invoca extraccion/clasificacion", "HTTP / Llamada local")
+  Rel(duckdb, rustfs, "Consulta Parquet (Silver/Gold)", "S3 API")
+
+  ' =============================
+  ' SERVING (UI)
+  ' =============================
+  Container(streamlit, "Dashboard Ejecutivo", "Streamlit", "Tablero curado: KPIs criticos, narrativa ejecutiva, escenarios de picos/incidentes.")
+  Container(metabase, "BI Autoservicio", "Metabase", "Exploracion BI multiusuario sobre gold_* (y/o vistas gold.v_*).")
+
+  Rel(streamlit, pg, "Consulta KPIs", "SQL")
+  Rel(metabase, pg, "Consulta gold_*", "SQL")
+
+  ' =============================
+  ' OBSERVABILIDAD
+  ' =============================
+  Container(prometheus, "Prometheus", "Prometheus", "Recoleccion de metricas (duracion de etapas, throughput, errores, retries).")
+  Container(grafana, "Grafana", "Grafana", "Dashboards operativos, SLAs/SLOs, alertas. Integra metricas (Prometheus) y, si aplica, datos de negocio (Postgres).")
+
+  Rel(prometheus, grafana, "Fuente de metricas", "PromQL")
+  Rel(daskWorkers, prometheus, "Expone metricas (opcional)", "HTTP /metrics")
+  Rel(prefect, prometheus, "Expone metricas (opcional)", "HTTP /metrics")
+  Rel(grafana, pg, "Consulta KPIs (opcional)", "SQL")
+}
+
+Rel(ds, metabase, "Explora indicadores y segmenta", "Web")
+Rel(ds, streamlit, "Consume tablero ejecutivo", "Web")
+Rel(dev, pqrgen, "Genera datos sinteticos", "CLI")
+Rel(dev, prefect, "Administra flows y ejecuciones", "Web/CLI")
+Rel(ops, grafana, "Monitorea operacion y alertas", "Web")
+Rel(biz, streamlit, "Revisa KPIs ejecutivos", "Web")
+
+SHOW_LEGEND()
+@enduml
