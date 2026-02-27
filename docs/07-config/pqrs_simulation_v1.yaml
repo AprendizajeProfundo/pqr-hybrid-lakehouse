@@ -1,0 +1,38 @@
+# configs/pqrs_simulation_v1.yaml
+
+version: pqrs_simulation_v1
+
+seed: 42
+date_range:
+  start: "2026-01-01"
+  end: "2026-01-31"
+volume_daily_avg: 100
+channel_probs:
+  email: 0.4
+  webform: 0.3
+  chat: 0.2
+  call: 0.1
+pqrs_type_probs:
+  P: 0.3
+  Q: 0.25
+  R: 0.3
+  S: 0.15
+priority_probs:
+  alta: 0.1
+  media: 0.5
+  baja: 0.4
+sla_breach_rate: 0.1
+geo_regions:
+  - "Bogotá"
+  - "Antioquia"
+  - "Valle del Cauca"
+  - "Cundinamarca"
+  - "Santander"
+  - "Atlántico"
+  - "Bolívar"
+  - "Norte de Santander"
+  - "Cesar"
+  - "Risaralda"
+run_id: "sim-run-001"
+git_sha: "abc123def"
+config_hash: "hash456"

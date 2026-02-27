@@ -12,7 +12,7 @@ Only deterministic transformations.
 
 ## 2. Source
 
-Input: RAW-EMAIL.schema.json  
+Input: RAW-PQRS.schema.json (eventos de canal email)  
 Output format: Parquet
 
 ---
@@ -51,7 +51,7 @@ Output format: Parquet
 
 S3 partition:
 ```text
-silver/email/day=YYYY-MM-DD/run_id=UUID/
+bronze/email/source=<provider>/day=YYYY-MM-DD/run_id=UUID/
 ```
 ---
 

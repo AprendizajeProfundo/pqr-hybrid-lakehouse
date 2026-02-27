@@ -1,0 +1,98 @@
+@startuml
+title PQR Hybrid Lakehouse MVP - Mapa de Principios Arquitectonicos (v1)
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment left
+skinparam wrapWidth 240
+
+' =========================
+' PLANOS ARQUITECTONICOS
+' =========================
+package "CONTROL PLANE (Gobierno y Serving)" as CONTROL {
+  rectangle "Supabase / PostgreSQL\n- Auth + RBAC\n- core.* (estado operativo)\n- meta.* (runs/lineage/checks)\n- gold_* (serving SQL)\n\nPrincipio:\n'El control plane gobierna; no almacena historico crudo.'" as PG
+}
+
+package "DATA PLANE (Lakehouse S3)" as DATA {
+  rectangle "RustFS (S3-Compatible)\n\nParticion:\nsource/day/run_id\n\nPrincipio:\n'RustFS es la fuente historica de verdad.'" as RUSTFS
+
+  folder "RAW (inmutable)\nJSONL + manifest + hashes\nAppend-only\n\nPrincipio:\n'Raw nunca se reescribe'" as RAW
+  folder "BRONZE (mecanico)\nParquet tipado\nNormalizacion minima\nSin IA\n\nPrincipio:\n'Estructura ≠ Semantica'" as BRONZE
+  folder "SILVER (curado + IA)\nParquet curado\nClasificacion PQRS\nEntidades / prioridad\nmodel_version\n\nPrincipio:\n'IA vive en Silver'" as SILVER
+  folder "GOLD (productos)\nKPIs, SLA, backlog\nParquet + carga a Postgres\n\nPrincipio:\n'Gold es la API analitica'" as GOLD
+
+  RAW --> BRONZE : Raw -> Bronze\n(parse + tipado)
+  BRONZE --> SILVER : Bronze -> Silver\n(enriquecimiento IA)
+  SILVER --> GOLD : Silver -> Gold\n(agregaciones)
+}
+
+package "COMPUTE PLANE (Big Data + Analitica)" as COMPUTE {
+  rectangle "Dask Distributed\n- paraleliza por particion\n- ejecuta ETL por capas\n\nPrincipio:\n'Dask coordina ejecucion; no es storage'" as DASK
+  rectangle "Servicio IA (logica semantica)\n- clasifica PQRS\n- extrae entidades\n- estima prioridad\n- (opcional) resumen/embeddings\n\nPrincipio:\n'IA agrega semantica, no tipado'" as IA
+  rectangle "DuckDB (OLAP sobre Parquet)\n- consultas sobre Silver/Gold\n- apoyo a agregaciones\n\nPrincipio:\n'DuckDB complementa a Dask'" as DUCKDB
+  rectangle "Polars (opcional)\n- aceleracion local / intra-particion\n- benchmarking\n\nPrincipio:\n'Polars no reemplaza Dask'" as POLARS
+}
+
+package "ORQUESTACION" as ORCH {
+  rectangle "Prefect Server\n- flows / scheduling\n- retries\n- tracking de estados\n\nPrincipio:\n'Idempotencia y reintentos seguros'" as PREFECT
+}
+
+package "OBSERVABILIDAD" as OBS {
+  rectangle "Prometheus\n- metricas de ejecucion\n- duracion por etapa\n- throughput\n- errores/retries" as PROM
+  rectangle "Grafana\n- dashboards operativos\n- SLA/SLO\n- alertas\n\nPrincipio:\n'Observabilidad desde el dia 1'" as GRAF
+}
+
+package "SERVING (Consumo)" as SERVING {
+  rectangle "Streamlit\nDashboard ejecutivo curado\n\nPrincipio:\n'Narrativa controlada del MVP'" as STREAMLIT
+  rectangle "Metabase\nBI autoservicio\nsobre gold_* (Postgres)\n\nPrincipio:\n'Exploracion gobernada'" as METABASE
+}
+
+' =========================
+' FLUJOS PRINCIPALES
+' =========================
+PREFECT --> DASK : dispara pipelines
+DASK --> RAW : lee Raw (S3)
+DASK --> BRONZE : escribe Bronze (Parquet)
+DASK --> IA : invoca IA\n(dentro de tareas)
+DASK --> SILVER : escribe Silver (Parquet + model_version)
+DASK --> GOLD : escribe Gold (Parquet)
+
+DUCKDB --> SILVER : OLAP / validacion\n(lectura Parquet)
+DUCKDB --> GOLD : OLAP / exploracion\n(lectura Parquet)
+
+GOLD --> PG : carga gold_* (serving)
+PREFECT --> PG : registra meta.runs\n(meta.*)
+
+STREAMLIT --> PG : consulta KPIs\n(SQL)
+METABASE --> PG : explora gold_*\n(SQL)
+
+DASK --> PROM : expone metricas\n(/metrics opcional)
+PREFECT --> PROM : expone metricas\n(/metrics opcional)
+PROM --> GRAF : fuente de metricas
+
+' =========================
+' NOTAS DE GOBIERNO
+' =========================
+note right of RAW
+Reproducibilidad:
+- run_id obligatorio
+- seed deterministico
+- manifest.json
+- hashes (minimo del manifest)
+end note
+
+note right of SILVER
+Gobierno de modelos:
+- model_version registrado
+- posibilidad de comparar corridas
+- separacion estructura vs semantica
+end note
+
+note right of PG
+Gold es la "API analitica":
+- Metabase consume gold_*
+- Streamlit consume vistas/KPIs
+- no BI directo sobre Bronze
+end note
+
+@enduml

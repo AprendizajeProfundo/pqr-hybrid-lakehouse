@@ -48,13 +48,12 @@ Source: bronze_email
 S3 partition:
 
 ```text
-bronze/email/day=YYYY-MM-DD/run_id=UUID/
+silver/email/source=<provider>/day=YYYY-MM-DD/run_id=UUID/
 ```
 
 ---
 
 ## 6. Non-Goals
 
-- No classification.
-- No entity extraction.
-- No priority scoring.
+- No reescritura de campos estructurales de Bronze.
+- No uso de este dataset para serving directo en BI (solo Gold).

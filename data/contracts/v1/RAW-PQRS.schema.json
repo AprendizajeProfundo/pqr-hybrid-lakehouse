@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PQRS Raw Event Schema V1",
+  "description": "Schema for raw PQRS events in JSONL format",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the event"
+    },
+    "ticket_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the ticket"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": ["TICKET_CREATED", "MESSAGE_ADDED", "STATUS_CHANGED", "ATTACHMENT_ADDED"],
+      "description": "Type of event"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the event"
+    },
+    "data": {
+      "type": "object",
+      "description": "Event-specific data",
+      "oneOf": [
+        {
+          "properties": {
+            "external_id": {"type": "string"},
+            "source_channel": {"type": "string", "enum": ["email", "webform", "chat", "call"]},
+            "pqrs_type": {"type": "string", "enum": ["P", "Q", "R", "S"]},
+            "priority": {"type": "string", "enum": ["alta", "media", "baja"]},
+            "geo_region": {"type": "string"},
+            "geo_municipio": {"type": "string"}
+          },
+          "required": ["external_id", "source_channel"]
+        },
+        {
+          "properties": {
+            "role": {"type": "string", "enum": ["citizen", "agent"]},
+            "text": {"type": "string"},
+            "text_len": {"type": "integer"}
+          },
+          "required": ["role", "text"]
+        },
+        {
+          "properties": {
+            "status_from": {"type": "string"},
+            "status_to": {"type": "string"},
+            "actor_role": {"type": "string", "enum": ["system", "agent"]}
+          },
+          "required": ["status_from", "status_to"]
+        },
+        {
+          "properties": {
+            "file_type": {"type": "string"},
+            "size_kb": {"type": "integer"},
+            "source_channel": {"type": "string"}
+          },
+          "required": ["file_type", "size_kb"]
+        }
+      ]
+    }
+  },
+  "required": ["event_id", "ticket_id", "event_type", "ts", "data"]
+}

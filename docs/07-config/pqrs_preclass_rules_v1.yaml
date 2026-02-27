@@ -1,0 +1,22 @@
+
+# configs/pqrs_preclass_rules_v1.yaml
+
+version: rules_pqrs_v1
+
+types:
+  P:
+    keywords: [solicito, solicitud, requiero, información, certificación]
+  Q:
+    keywords: [queja, maltrato, funcionario, irrespeto]
+  R:
+    keywords: [reclamo, incumplimiento, cobro, factura, error]
+  S:
+    keywords: [sugiero, propuesta, mejorar, idea]
+
+priority:
+  alta:
+    keywords: [urgente, riesgo, fraude, tutela]
+  media:
+    keywords: [pronto, reitero, molestia]
+  baja:
+    keywords: [informativo, sugerencia]

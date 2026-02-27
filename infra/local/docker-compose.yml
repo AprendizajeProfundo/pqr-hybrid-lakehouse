@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # Control Plane: Postgres (Supabase-like)
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./volumes/postgres-data:/var/lib/postgresql/data
+      - ./init-scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - pqr-network
+
+  # Data Plane: RustFS (S3-native)
+  rustfs:
+    image: rustfs/rustfs:latest            # replace with your build or registry image
+    container_name: rustfs
+    restart: unless-stopped
+
+    ports:
+      - "9000:9000"   # S3 API endpoint (adjust if different)
+      # - "9001:9001" # admin/console port if your RustFS build provides one
+
+    environment:
+      # root credentials – names depend on RustFS release, update accordingly
+      RUSTFS_ROOT_USER: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_ROOT_PASSWORD: ${RUSTFS_SECRET_KEY}
+      # add other RustFS-specific variables here
+
+    volumes:
+      - ./volumes/rustfs-data:/data   # for dev/POC; in prod bind-mount a real disk/RAID
+
+    networks:
+      - pqr-network
+
+    #command: ["server", "/data"]  # uncomment/adjust if required by your RustFS version
+
+  # Compute Plane: Dask Scheduler
+  dask-scheduler:
+    image: daskdev/dask:latest
+    command: dask-scheduler --host 0.0.0.0 --port 8786
+    ports:
+      - "8786:8786"
+      - "8787:8787"
+    networks:
+      - pqr-network
+
+  # Compute Plane: Dask Workers
+  dask-worker:
+    image: daskdev/dask:latest
+    command: dask-worker ${DASK_SCHEDULER_ADDRESS} --nprocs 2 --nthreads 1
+    depends_on:
+      - dask-scheduler
+    deploy:
+      replicas: 2
+    networks:
+      - pqr-network
+
+  # Orquestación: Prefect Server
+  prefect-server:
+    image: prefecthq/prefect:latest
+    command: prefect server start --host 0.0.0.0
+    environment:
+      PREFECT_API_URL: ${PREFECT_API_URL}
+    ports:
+      - "4200:4200"
+    networks:
+      - pqr-network
+
+  # Observabilidad: Prometheus
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - pqr-network
+
+  # Observabilidad: Grafana
+  grafana:
+    image: grafana/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./volumes/grafana-data:/var/lib/grafana
+      - ./configs/grafana-dashboards:/var/lib/grafana/dashboards
+      - ./configs/grafana-provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./configs/grafana-provisioning/dashboards:/etc/grafana/provisioning/dashboards
+    ports:
+      - "3001:3000"
+    networks:
+      - pqr-network
+
+  # Serving: Streamlit (Dashboard Ejecutivo)
+  streamlit:
+    build: ../../apps/dashboard-streamlit  # Asume Dockerfile en apps/
+    ports:
+      - "${STREAMLIT_PORT}:8501"
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    networks:
+      - pqr-network
+
+  # Serving: Metabase (BI Autoservicio)
+  metabase:
+    image: metabase/metabase
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_DBNAME: ${POSTGRES_DB}
+    ports:
+      - "${METABASE_PORT}:3000"
+    depends_on:
+      - postgres
+    networks:
+      - pqr-network
+
+networks:
+  pqr-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  rustfs-data:
+  grafana-data:

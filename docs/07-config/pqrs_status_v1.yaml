@@ -1,0 +1,59 @@
+# configs/pqrs_status_v1.yaml
+
+version: pqrs_status_v1
+
+states:
+  RECEIVED:
+    is_terminal: false
+    sla_behavior: NONE
+  RADICATED:
+    is_terminal: false
+    sla_behavior: START
+  CLASSIFIED:
+    is_terminal: false
+    sla_behavior: RUN
+  ASSIGNED:
+    is_terminal: false
+    sla_behavior: RUN
+  IN_PROGRESS:
+    is_terminal: false
+    sla_behavior: RUN
+  ON_HOLD:
+    is_terminal: false
+    sla_behavior: PAUSE
+  RESPONDED:
+    is_terminal: false
+    sla_behavior: RUN
+  CLOSED:
+    is_terminal: true
+    sla_behavior: STOP
+  ARCHIVED:
+    is_terminal: true
+    sla_behavior: NONE
+  REOPENED:
+    is_terminal: false
+    sla_behavior: RUN
+
+transitions:
+  - from: RECEIVED
+    to: RADICATED
+  - from: RADICATED
+    to: CLASSIFIED
+  - from: CLASSIFIED
+    to: ASSIGNED
+  - from: ASSIGNED
+    to: IN_PROGRESS
+  - from: IN_PROGRESS
+    to: RESPONDED
+  - from: IN_PROGRESS
+    to: ON_HOLD
+  - from: ON_HOLD
+    to: IN_PROGRESS
+  - from: RESPONDED
+    to: CLOSED
+  - from: CLOSED
+    to: ARCHIVED
+  - from: CLOSED
+    to: REOPENED
+  - from: REOPENED
+    to: IN_PROGRESS

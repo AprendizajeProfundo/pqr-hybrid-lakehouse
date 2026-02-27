@@ -1,0 +1,34 @@
+@startuml Estados PQRS V1
+
+title Máquina de Estados PQRS (V1)
+
+[*] --> RECEIVED : Inicio
+
+RECEIVED --> RADICATED : Radicar
+RADICATED --> CLASSIFIED : Clasificar
+CLASSIFIED --> ASSIGNED : Asignar
+ASSIGNED --> IN_PROGRESS : En Progreso
+IN_PROGRESS --> RESPONDED : Responder
+IN_PROGRESS --> ON_HOLD : Pausar
+ON_HOLD --> IN_PROGRESS : Reanudar
+RESPONDED --> CLOSED : Cerrar
+CLOSED --> ARCHIVED : Archivar
+CLOSED --> REOPENED : Reabrir
+REOPENED --> IN_PROGRESS : Reprocesar
+
+CLOSED --> [*] : Fin
+ARCHIVED --> [*] : Fin
+
+note right of RECEIVED
+  Estado inicial
+end note
+
+note right of CLOSED
+  Terminal
+end note
+
+note right of ARCHIVED
+  Terminal
+end note
+
+@enduml
