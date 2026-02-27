@@ -154,3 +154,6 @@ crash.log
 # Misc
 ##################################
 .DS_Store?
+
+# Docker local runtime data
+infra/local/volumes/
