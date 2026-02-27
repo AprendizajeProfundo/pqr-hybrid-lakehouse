@@ -263,6 +263,44 @@ Copia el script **completo** desde [GUIDE-Init-Postgres-SQL-Explicacion-Detallad
 
 Ubicación: `infra/local/init-scripts/init-postgres.sql`
 
+### 5.2 Preparar Entorno de Streamlit
+
+Nuestro `docker-compose.yml` intenta construir el servicio de Streamlit usando el código fuente en la carpeta `apps/`. Si esta carpeta o el `Dockerfile` no existen, Docker lanzará un error (*failed to read dockerfile*). Vamos a crear los archivos base para evitarlo.
+
+1. **Crea la carpeta de la aplicación desde la raíz de tu proyecto:**
+   ```
+   mkdir -p apps/dashboard-streamlit
+   ```
+
+2. **Crea el archivo `apps/dashboard-streamlit/Dockerfile`:**
+   ```dockerfile
+   FROM python:3.10-slim
+
+   WORKDIR /app
+
+   # Instalar Streamlit y dependencias analíticas
+   RUN pip install --no-cache-dir streamlit pandas
+
+   # Copiar el código fuente
+   COPY app.py .
+
+   # Exponer el puerto
+   EXPOSE 8501
+
+   # Comando para arrancar el servidor
+   CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+   ```
+
+3. **Crea un archivo temporal `apps/dashboard-streamlit/app.py`:**
+   ```python
+   import streamlit as st
+
+   st.set_page_config(page_title="PQR Lakehouse", page_icon="📊", layout="wide")
+
+   st.title("📊 PQR Hybrid Lakehouse - Dashboard")
+   st.write("¡El contenedor de Streamlit ha sido construido e iniciado correctamente!")
+   ```
+
 ## Paso 6: Configurar Prometheus y Grafana
 
 Para que la observabilidad funcione automáticamente ("as-code") sin tener que configurar nada a mano en la interfaz, vamos a configurar Prometheus y aprovisionar Grafana (Data Sources y Dashboards).

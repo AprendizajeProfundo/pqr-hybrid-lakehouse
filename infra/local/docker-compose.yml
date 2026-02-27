@@ -18,12 +18,12 @@ services:
 
   # Data Plane: RustFS (S3-native)
   rustfs:
-    image: rustfs/rustfs:latest            # replace with your build or registry image
+    image: rustfs/rustfs:latest # replace with your build or registry image
     container_name: rustfs
     restart: unless-stopped
 
     ports:
-      - "9000:9000"   # S3 API endpoint (adjust if different)
+      - "9000:9000" # S3 API endpoint (adjust if different)
       # - "9001:9001" # admin/console port if your RustFS build provides one
 
     environment:
@@ -33,14 +33,13 @@ services:
       # add other RustFS-specific variables here
 
     volumes:
-      - ./volumes/rustfs-data:/data   # for dev/POC; in prod bind-mount a real disk/RAID
+      - ./volumes/rustfs-data:/data # for dev/POC; in prod bind-mount a real disk/RAID
 
     networks:
       - pqr-network
-
     #command: ["server", "/data"]  # uncomment/adjust if required by your RustFS version
 
-  # Compute Plane: Dask Scheduler
+    # Compute Plane: Dask Scheduler
   dask-scheduler:
     image: daskdev/dask:latest
     command: dask-scheduler --host 0.0.0.0 --port 8786
@@ -64,6 +63,7 @@ services:
   # Orquestación: Prefect Server
   prefect-server:
     image: prefecthq/prefect:latest
+    platform: linux/amd64
     command: prefect server start --host 0.0.0.0
     environment:
       PREFECT_API_URL: ${PREFECT_API_URL}
@@ -100,7 +100,7 @@ services:
 
   # Serving: Streamlit (Dashboard Ejecutivo)
   streamlit:
-    build: ../../apps/dashboard-streamlit  # Asume Dockerfile en apps/
+    build: ../../apps/dashboard-streamlit # Asume Dockerfile en apps/
     ports:
       - "${STREAMLIT_PORT}:8501"
     environment:
