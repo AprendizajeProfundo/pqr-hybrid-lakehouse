@@ -1,0 +1,116 @@
+x-service-defaults: &service_defaults
+  restart: unless-stopped
+  networks:
+    - pqr-network
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # Supabase API Gateway
+  kong:
+    <<: *service_defaults
+    image: kong:2.8.1
+    init: true
+    depends_on:
+      - auth
+      - rest
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: bundled
+    volumes:
+      - ./configs/supabase/kong.yml:/home/kong/kong.yml:ro
+    ports:
+      - "8000:8000"
+      - "9443:8443"
+
+  # Supabase Auth
+  auth:
+    <<: *service_defaults
+    image: supabase/gotrue:v2.186.0
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      API_EXTERNAL_URL: ${SUPABASE_API_URL:-http://localhost:8000}
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      GOTRUE_SITE_URL: ${SUPABASE_SITE_URL:-http://localhost:3002}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-jwt-secret-change-me-please-32-chars-min}
+
+  # Supabase REST (PostgREST)
+  rest:
+    <<: *service_defaults
+    image: postgrest/postgrest:v12.2.3
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${SUPABASE_DB_AUTHENTICATOR_PASSWORD:-authenticator-dev-password}@postgres:5432/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: public,meta,bronze,silver,gold
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-jwt-secret-change-me-please-32-chars-min}
+
+  # Supabase Meta API (used by Studio)
+  meta:
+    <<: *service_defaults
+    image: supabase/postgres-meta:v0.95.2
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: postgres
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB}
+      PG_META_DB_USER: ${POSTGRES_USER}
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  # Supabase Studio UI
+  supabase-studio:
+    <<: *service_defaults
+    image: supabase/studio:2025.10.01-sha-8460121
+    init: true
+    depends_on:
+      - kong
+      - meta
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      DEFAULT_ORGANIZATION_NAME: PQR Lakehouse
+      DEFAULT_PROJECT_NAME: pqr-hybrid-lakehouse
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_API_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-local-anon-key}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-local-service-role-key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NEXT_PUBLIC_ENABLE_LOGS: "false"
+    ports:
+      - "3002:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/project/default', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

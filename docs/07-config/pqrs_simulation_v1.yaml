@@ -4,14 +4,15 @@ version: pqrs_simulation_v1
 
 seed: 42
 date_range:
-  start: "2026-01-01"
-  end: "2026-01-31"
-volume_daily_avg: 100
+  start: "2025-09-01"
+  end: "2026-02-28"
+volume_daily_avg: 1150
 channel_probs:
-  email: 0.4
-  webform: 0.3
-  chat: 0.2
-  call: 0.1
+  email: 0.38
+  webform: 0.31
+  chat: 0.14
+  call: 0.11
+  other_digital: 0.06
 pqrs_type_probs:
   P: 0.3
   Q: 0.25
@@ -22,6 +23,18 @@ priority_probs:
   media: 0.5
   baja: 0.4
 sla_breach_rate: 0.1
+sla_business_days:
+  P: 15
+  Q: 10
+  R: 8
+  S: 20
+spike:
+  min_daily: 3000
+  max_daily: 4000
+  min_consecutive_days: 5
+  max_consecutive_days: 10
+  window_count: 1
+geo_probability_csv: "data/dane/probabilidad_municipio.csv"
 geo_regions:
   - "Bogotá"
   - "Antioquia"

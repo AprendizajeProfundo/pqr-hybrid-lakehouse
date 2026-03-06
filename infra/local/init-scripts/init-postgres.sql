@@ -20,11 +20,19 @@ CREATE SCHEMA IF NOT EXISTS meta;
 CREATE SCHEMA IF NOT EXISTS bronze;
 CREATE SCHEMA IF NOT EXISTS silver;
 CREATE SCHEMA IF NOT EXISTS gold;
+CREATE SCHEMA IF NOT EXISTS analytics;
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- Extensiones requeridas antes de crear tablas con tipos/funciones específicas
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 COMMENT ON SCHEMA meta IS 'Esquema de metadatos: trazabilidad de ETL, calidad de datos.';
 COMMENT ON SCHEMA bronze IS 'Esquema Bronze: eventos normalizados desde S3 (Raw layer).';
 COMMENT ON SCHEMA silver IS 'Esquema Silver: tablas curadas y enriquecidas para análisis.';
 COMMENT ON SCHEMA gold IS 'Esquema Gold: KPIs y métricas agregadas para executive dashboards.';
+COMMENT ON SCHEMA analytics IS 'Esquema semántico: vistas para dashboards y consultas BI.';
+COMMENT ON SCHEMA auth IS 'Esquema requerido por Supabase GoTrue para autenticación.';
 
 -- ============================================================================
 -- 2. META SCHEMA - TABLAS DE TRAZABILIDAD Y CALIDAD
@@ -126,12 +134,16 @@ CREATE TABLE IF NOT EXISTS silver.tickets (
   external_id VARCHAR(50),
   source_channel VARCHAR(20) NOT NULL,
   pqrs_type VARCHAR(1) NOT NULL,
-  priority VARCHAR(10) DEFAULT 'NORMAL',
+  priority VARCHAR(10) DEFAULT 'media',
   created_at TIMESTAMP NOT NULL,
   radicated_at TIMESTAMP,
   current_status VARCHAR(20) NOT NULL DEFAULT 'RECEIVED',
   geo_id INTEGER,
   region VARCHAR(50),
+  region_name VARCHAR(50),
+  department_name VARCHAR(50),
+  city_name VARCHAR(100),
+  dane_city_code VARCHAR(5),
   sla_due_at TIMESTAMP,
   closed_at TIMESTAMP,
   
@@ -155,6 +167,9 @@ CREATE INDEX IF NOT EXISTS idx_tickets_status ON silver.tickets(current_status);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON silver.tickets(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tickets_closed_at ON silver.tickets(closed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tickets_region ON silver.tickets(region);
+CREATE INDEX IF NOT EXISTS idx_tickets_region_name ON silver.tickets(region_name);
+CREATE INDEX IF NOT EXISTS idx_tickets_department_name ON silver.tickets(department_name);
+CREATE INDEX IF NOT EXISTS idx_tickets_dane_city_code ON silver.tickets(dane_city_code);
 CREATE INDEX IF NOT EXISTS idx_tickets_sla_due_at ON silver.tickets(sla_due_at);
 
 -- ============================================================================
@@ -206,6 +221,35 @@ CREATE INDEX IF NOT EXISTS idx_status_events_ticket_id ON silver.status_events(t
 CREATE INDEX IF NOT EXISTS idx_status_events_ts ON silver.status_events(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_status_events_status_from ON silver.status_events(status_from);
 CREATE INDEX IF NOT EXISTS idx_status_events_status_to ON silver.status_events(status_to);
+
+-- ============================================================================
+-- 4.1 SILVER SCHEMA - PRECLASIFICACION PQRS
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS silver.preclassification (
+  ticket_id UUID NOT NULL REFERENCES silver.tickets(ticket_id) ON DELETE CASCADE,
+  run_id UUID NOT NULL REFERENCES meta.etl_runs(run_id),
+  model_type VARCHAR(30) NOT NULL,            -- rules / tfidf_lr / embeddings
+  model_version VARCHAR(50) NOT NULL,
+  predicted_type VARCHAR(1) NOT NULL,         -- P/Q/R/S
+  predicted_priority VARCHAR(10) NOT NULL,    -- alta/media/baja
+  score NUMERIC(5,4) NOT NULL,
+  explain_json JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (ticket_id, run_id, model_version)
+);
+
+COMMENT ON TABLE silver.preclassification IS
+  'Resultado de preclasificación por ticket y run, versionado por modelo/reglas.';
+COMMENT ON COLUMN silver.preclassification.model_type IS
+  'Tipo de clasificador: rules, tfidf_lr o embeddings.';
+COMMENT ON COLUMN silver.preclassification.model_version IS
+  'Versión de reglas/modelo utilizada para inferencia.';
+
+CREATE INDEX IF NOT EXISTS idx_preclassification_run_id ON silver.preclassification(run_id);
+CREATE INDEX IF NOT EXISTS idx_preclassification_predicted_type ON silver.preclassification(predicted_type);
+CREATE INDEX IF NOT EXISTS idx_preclassification_predicted_priority ON silver.preclassification(predicted_priority);
+CREATE INDEX IF NOT EXISTS idx_preclassification_created_at ON silver.preclassification(created_at DESC);
 
 -- ============================================================================
 -- 5. GOLD SCHEMA - KPIs Y MÉTRICAS AGREGADAS
@@ -282,6 +326,106 @@ CREATE INDEX IF NOT EXISTS idx_kpi_sla_day ON gold.kpi_sla_daily(day DESC);
 CREATE INDEX IF NOT EXISTS idx_kpi_sla_pqrs_type ON gold.kpi_sla_daily(pqrs_type);
 
 -- ============================================================================
+
+CREATE TABLE IF NOT EXISTS gold.kpi_volume_geo_daily (
+  day DATE NOT NULL,
+  region_name VARCHAR(50) NOT NULL,
+  department_name VARCHAR(50) NOT NULL,
+  dane_city_code VARCHAR(5) NOT NULL,
+  pqrs_type VARCHAR(1) NOT NULL,
+  channel VARCHAR(20) NOT NULL,
+  tickets_count INTEGER NOT NULL DEFAULT 0,
+  run_id UUID REFERENCES meta.etl_runs(run_id),
+  calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (day, region_name, department_name, dane_city_code, pqrs_type, channel)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_geo_day ON gold.kpi_volume_geo_daily(day DESC);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_geo_department ON gold.kpi_volume_geo_daily(department_name);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_geo_city_code ON gold.kpi_volume_geo_daily(dane_city_code);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_geo_type ON gold.kpi_volume_geo_daily(pqrs_type);
+
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS gold.kpi_backlog_geo_daily (
+  day DATE NOT NULL,
+  region_name VARCHAR(50) NOT NULL,
+  department_name VARCHAR(50) NOT NULL,
+  dane_city_code VARCHAR(5) NOT NULL,
+  pqrs_type VARCHAR(1) NOT NULL,
+  backlog_count INTEGER NOT NULL DEFAULT 0,
+  run_id UUID REFERENCES meta.etl_runs(run_id),
+  calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (day, region_name, department_name, dane_city_code, pqrs_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpi_backlog_geo_day ON gold.kpi_backlog_geo_daily(day DESC);
+CREATE INDEX IF NOT EXISTS idx_kpi_backlog_geo_department ON gold.kpi_backlog_geo_daily(department_name);
+CREATE INDEX IF NOT EXISTS idx_kpi_backlog_geo_city_code ON gold.kpi_backlog_geo_daily(dane_city_code);
+CREATE INDEX IF NOT EXISTS idx_kpi_backlog_geo_type ON gold.kpi_backlog_geo_daily(pqrs_type);
+
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS gold.kpi_sla_geo_daily (
+  day DATE NOT NULL,
+  region_name VARCHAR(50) NOT NULL,
+  department_name VARCHAR(50) NOT NULL,
+  dane_city_code VARCHAR(5) NOT NULL,
+  pqrs_type VARCHAR(1) NOT NULL,
+  within_sla_pct NUMERIC(5,2) NOT NULL,
+  overdue_count INTEGER NOT NULL DEFAULT 0,
+  avg_overdue_days NUMERIC(5,2),
+  run_id UUID REFERENCES meta.etl_runs(run_id),
+  calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (day, region_name, department_name, dane_city_code, pqrs_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpi_sla_geo_day ON gold.kpi_sla_geo_daily(day DESC);
+CREATE INDEX IF NOT EXISTS idx_kpi_sla_geo_department ON gold.kpi_sla_geo_daily(department_name);
+CREATE INDEX IF NOT EXISTS idx_kpi_sla_geo_city_code ON gold.kpi_sla_geo_daily(dane_city_code);
+CREATE INDEX IF NOT EXISTS idx_kpi_sla_geo_type ON gold.kpi_sla_geo_daily(pqrs_type);
+
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS gold.kpi_volume_dept_daily (
+  day DATE NOT NULL,
+  department_name VARCHAR(50) NOT NULL,
+  pqrs_type VARCHAR(1) NOT NULL,
+  channel VARCHAR(20) NOT NULL,
+  tickets_count INTEGER NOT NULL DEFAULT 0,
+  tickets_mavg_7d NUMERIC(12,2) NOT NULL DEFAULT 0,
+  pct_vs_prev_day NUMERIC(8,2) NOT NULL DEFAULT 0,
+  pct_vs_prev_week NUMERIC(8,2) NOT NULL DEFAULT 0,
+  run_id UUID REFERENCES meta.etl_runs(run_id),
+  calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (day, department_name, pqrs_type, channel)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_dept_day ON gold.kpi_volume_dept_daily(day DESC);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_dept_department ON gold.kpi_volume_dept_daily(department_name);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_dept_type ON gold.kpi_volume_dept_daily(pqrs_type);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_dept_channel ON gold.kpi_volume_dept_daily(channel);
+
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS gold.kpi_volume_national_daily (
+  day DATE NOT NULL,
+  pqrs_type VARCHAR(1) NOT NULL,
+  channel VARCHAR(20) NOT NULL,
+  tickets_count INTEGER NOT NULL DEFAULT 0,
+  tickets_mavg_7d NUMERIC(12,2) NOT NULL DEFAULT 0,
+  pct_vs_prev_day NUMERIC(8,2) NOT NULL DEFAULT 0,
+  pct_vs_prev_week NUMERIC(8,2) NOT NULL DEFAULT 0,
+  run_id UUID REFERENCES meta.etl_runs(run_id),
+  calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (day, pqrs_type, channel)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_national_day ON gold.kpi_volume_national_daily(day DESC);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_national_type ON gold.kpi_volume_national_daily(pqrs_type);
+CREATE INDEX IF NOT EXISTS idx_kpi_volume_national_channel ON gold.kpi_volume_national_daily(channel);
+
+-- ============================================================================
 -- 5. SILVER SCHEMA - TABLAS DE DIMENSIONES
 -- ============================================================================
 
@@ -300,12 +444,10 @@ COMMENT ON TABLE silver.dim_channel IS
 INSERT INTO silver.dim_channel (channel_name, description) 
 VALUES 
   ('email', 'Peticiones vía correo electrónico'),
-  ('phone', 'Peticiones vía llamada telefónica'),
-  ('web_portal', 'Portal web de ciudadano'),
-  ('in_person', 'Presentación presencial'),
-  ('social_media', 'Redes sociales y WhatsApp'),
-  ('sms', 'Mensajes de texto SMS'),
-  ('api', 'Integraciones automatizadas')
+  ('webform', 'Peticiones vía formulario web'),
+  ('chat', 'Peticiones vía chat digital'),
+  ('call', 'Peticiones vía llamada telefónica'),
+  ('other_digital', 'Peticiones vía otros canales digitalizados')
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
@@ -329,24 +471,6 @@ CREATE TABLE IF NOT EXISTS silver.dim_geo (
 COMMENT ON TABLE silver.dim_geo IS 
   'Dimensión: Geografía de Colombia (regiones, departamentos, ciudades) con códigos DANE, coordenadas y geometría PostGIS.';
 
-INSERT INTO silver.dim_geo (
-  region_name, department_name, city_name,
-  dane_department_code, dane_city_code,
-  latitude, longitude, geom
-) 
-VALUES 
-  ('Andina', 'Cundinamarca', 'Bogotá', '11', '11001', 4.7110, -74.0721, ST_SetSRID(ST_MakePoint(-74.0721,4.7110),4326)),
-  ('Andina', 'Cundinamarca', 'Soacha', '11', '25720', 4.5796, -74.2135, ST_SetSRID(ST_MakePoint(-74.2135,4.5796),4326)),
-  ('Andina', 'Boyacá', 'Tunja', '15', '15001', 5.5378, -73.3678, ST_SetSRID(ST_MakePoint(-73.3678,5.5378),4326)),
-  ('Andina', 'Nariño', 'Pasto', '52', '52001', 1.2136, -77.2811, ST_SetSRID(ST_MakePoint(-77.2811,1.2136),4326)),
-  ('Caribe', 'Atlantico', 'Barranquilla', '08', '08001', 10.9685, -74.7813, ST_SetSRID(ST_MakePoint(-74.7813,10.9685),4326)),
-  ('Caribe', 'Bolívar', 'Cartagena', '13', '13001', 10.3910, -75.4794, ST_SetSRID(ST_MakePoint(-75.4794,10.3910),4326)),
-  ('Caribe', 'Magdalena', 'Santa Marta', '47', '47001', 11.2408, -74.1990, ST_SetSRID(ST_MakePoint(-74.1990,11.2408),4326)),
-  ('Pacífico', 'Valle del Cauca', 'Cali', '76', '76001', 3.4516, -76.5320, ST_SetSRID(ST_MakePoint(-76.5320,3.4516),4326)),
-  ('Pacífico', 'Valle del Cauca', 'Buenaventura', '76', '76001', 3.8683, -77.0560, ST_SetSRID(ST_MakePoint(-77.0560,3.8683),4326)),
-  ('Orinoquía', 'Meta', 'Villavicencio', '50', '50001', 4.1420, -73.6317, ST_SetSRID(ST_MakePoint(-73.6317,4.1420),4326)),
-  ('Amazonia', 'Amazonas', 'Leticia', '91', '91001', -4.2153, -69.9406, ST_SetSRID(ST_MakePoint(-69.9406,-4.2153),4326))
-ON CONFLICT DO NOTHING;
 
 -- ============================================================================
 
@@ -368,10 +492,10 @@ COMMENT ON COLUMN silver.dim_pqrs_type.sla_days_default IS
 
 INSERT INTO silver.dim_pqrs_type (pqrs_code, pqrs_name, description, legal_reference, sla_days_default) 
 VALUES 
-  ('P', 'Petición', 'Derecho a presentar peticiones respetuosas a las autoridades', 'Decreto 2649/2012', 10),
-  ('Q', 'Queja', 'Desconformidad con la prestación del servicio', 'Decreto 2649/2012', 15),
-  ('R', 'Reclamo', 'Hechos o actos que causan daño pecuniario', 'Decreto 2649/2012', 20),
-  ('S', 'Sugerencia', 'Propuestas de mejora en procesos y servicios', 'Decreto 2649/2012', 30)
+  ('P', 'Petición', 'Derecho a presentar peticiones respetuosas a las autoridades', 'Documento base PoC 2026', 15),
+  ('Q', 'Queja', 'Desconformidad con la prestación del servicio', 'Documento base PoC 2026', 10),
+  ('R', 'Reclamo', 'Hechos o actos que causan daño pecuniario', 'Documento base PoC 2026', 8),
+  ('S', 'Sugerencia', 'Propuestas de mejora en procesos y servicios', 'Documento base PoC 2026', 20)
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
@@ -391,10 +515,9 @@ COMMENT ON TABLE silver.dim_priority IS
 
 INSERT INTO silver.dim_priority (priority_name, priority_level, description, response_time_hours) 
 VALUES 
-  ('Low', 1, 'Requiere respuesta en tiempo normal', 72),
-  ('Medium', 2, 'Requiere respuesta dentro de 48 horas', 48),
-  ('High', 3, 'Requiere respuesta dentro de 24 horas', 24),
-  ('Urgent', 4, 'Requiere respuesta inmediata', 4)
+  ('baja', 1, 'Requiere respuesta en tiempo normal', 72),
+  ('media', 2, 'Requiere respuesta dentro de 48 horas', 48),
+  ('alta', 3, 'Requiere respuesta dentro de 24 horas', 24)
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
@@ -416,13 +539,16 @@ COMMENT ON COLUMN silver.dim_status.is_terminal IS
 
 INSERT INTO silver.dim_status (status_code, status_name, description, is_terminal) 
 VALUES 
-  ('OPEN', 'Abierto', 'Ticket recibido y asignado', FALSE),
-  ('IN_PROCESS', 'En Proceso', 'Siendo atendido por el gestor', FALSE),
-  ('PENDING_INFO', 'Pendiente Info', 'Aguardando información adicional del ciudadano', FALSE),
-  ('RESOLVED', 'Resuelto', 'Respuesta dada al ciudadano', TRUE),
-  ('CLOSED', 'Cerrado', 'Ticket finalizado y confirmado', TRUE),
-  ('REJECTED', 'Rechazado', 'No procede (fuera de competencia, etc.)', TRUE),
-  ('ESCALATED', 'Escalado', 'Escalado a nivel superior', FALSE)
+  ('RECEIVED', 'Recibido', 'Ticket recibido, pendiente de radicación', FALSE),
+  ('RADICATED', 'Radicado', 'Ticket radicado oficialmente', FALSE),
+  ('CLASSIFIED', 'Clasificado', 'Ticket clasificado por tipo y prioridad', FALSE),
+  ('ASSIGNED', 'Asignado', 'Ticket asignado a un gestor', FALSE),
+  ('IN_PROGRESS', 'En Progreso', 'Ticket siendo atendido', FALSE),
+  ('ON_HOLD', 'En Espera', 'Atención pausada por información faltante o dependencia externa', FALSE),
+  ('RESPONDED', 'Respondido', 'Se entregó respuesta al ciudadano', FALSE),
+  ('CLOSED', 'Cerrado', 'Ticket cerrado formalmente', TRUE),
+  ('ARCHIVED', 'Archivado', 'Ticket finalizado y archivado', TRUE),
+  ('REOPENED', 'Reabierto', 'Ticket reabierto tras cierre', FALSE)
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
@@ -504,10 +630,62 @@ COMMENT ON VIEW silver.v_sla_summary IS
   'Vista: resumen de SLA por tipo PQRS (cierre, velocidad).';
 
 -- ============================================================================
--- 7. EXTENSIONES Y CONFIGURACIÓN
+-- 7. VISTAS SEMANTICAS ANALYTICS
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE OR REPLACE VIEW analytics.v_timeseries_national_daily AS
+SELECT
+  day,
+  pqrs_type,
+  channel,
+  tickets_count,
+  tickets_mavg_7d,
+  pct_vs_prev_day,
+  pct_vs_prev_week,
+  run_id,
+  calculated_at
+FROM gold.kpi_volume_national_daily;
+
+CREATE OR REPLACE VIEW analytics.v_timeseries_department_daily AS
+SELECT
+  day,
+  department_name,
+  pqrs_type,
+  channel,
+  tickets_count,
+  tickets_mavg_7d,
+  pct_vs_prev_day,
+  pct_vs_prev_week,
+  run_id,
+  calculated_at
+FROM gold.kpi_volume_dept_daily;
+
+CREATE OR REPLACE VIEW analytics.v_geo_daily AS
+SELECT
+  v.day,
+  v.region_name,
+  v.department_name,
+  v.dane_city_code,
+  v.pqrs_type,
+  v.channel,
+  v.tickets_count,
+  b.backlog_count,
+  s.within_sla_pct,
+  s.overdue_count,
+  s.avg_overdue_days
+FROM gold.kpi_volume_geo_daily v
+LEFT JOIN gold.kpi_backlog_geo_daily b
+  ON v.day = b.day
+ AND v.region_name = b.region_name
+ AND v.department_name = b.department_name
+ AND v.dane_city_code = b.dane_city_code
+ AND v.pqrs_type = b.pqrs_type
+LEFT JOIN gold.kpi_sla_geo_daily s
+  ON v.day = s.day
+ AND v.region_name = s.region_name
+ AND v.department_name = s.department_name
+ AND v.dane_city_code = s.dane_city_code
+ AND v.pqrs_type = s.pqrs_type;
 
 -- Comentarios sobre la base de datos
 COMMENT ON DATABASE postgres IS 

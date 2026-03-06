@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS meta.etl_runs (
   gold_rows INTEGER DEFAULT 0,        -- cuántas filas en Gold
   executed_by VARCHAR(100),           -- usuario/sistema que ejecutó
   executor_role VARCHAR(50),          -- rol: SYSTEM, ADMIN, USER, GITHUB_ACTION
-  execution_context VARCHAR(255),     -- dónde: docker-compose, kubernetes, manual
+  execution_context VARCHAR(255),     -- dónde: docker compose, kubernetes, manual
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS meta.etl_runs (
 
 | run_id | seed | executed_by | executor_role | execution_context | status |
 |--------|------|------------|---------------|-------------------|--------|
-| abc-123 | 42 | admin | ADMIN | docker-compose | SUCCESS |
+| abc-123 | 42 | admin | ADMIN | docker compose | SUCCESS |
 | def-456 | 42 | scheduler | SYSTEM | kubernetes | SUCCESS |
 | ghi-789 | 42 | github-actions | GITHUB_ACTION | github-actions | SUCCESS |
 
@@ -582,9 +582,9 @@ Con `IF NOT EXISTS`, todo es seguro.
 ### Flujo:
 
 ```
-1. docker-compose up -d
+1. docker compose up -d
    ↓
-2. Docker arranca contenedor postgres:15
+2. Docker arranca contenedor postgis/postgis:15-3.4
    ↓
 3. PostgreSQL inicia y busca en /docker-entrypoint-initdb.d/
    ↓
@@ -601,7 +601,7 @@ Con `IF NOT EXISTS`, todo es seguro.
 
 ```bash
 # Conectar a postgres
-docker-compose exec postgres psql -U postgres -d pqrs_db
+docker compose exec postgres psql -U postgres -d pqrs_db
 
 # Dentro de psql:
 \dt                          # listar tablas

@@ -17,7 +17,7 @@ El `docker-compose.yml` que utilizamos localmente no es más que un simulador. F
 Localmente, dependemos de volúmenes de Docker (`infra/local/volumes/`) atados a tu disco duro. En la nube, delegamos esta responsabilidad a servicios administrados para garantizar alta disponibilidad y evitar pérdida de datos.
 
 ### Base de Datos Relacional (El Control Plane)
-* **Local:** Contenedor `postgres:15` escribiendo en `volumes/postgres-data`.
+* **Local:** Contenedor `postgis/postgis:15-3.4` escribiendo en `volumes/postgres-data`.
 * **AWS:** Amazon RDS (Relational Database Service) para PostgreSQL o Amazon Aurora.
 * **El Cambio:** 
   1. En tu archivo `.env`, cambias las variables `POSTGRES_HOST`, `POSTGRES_USER` y `POSTGRES_PASSWORD` para que apunten al Endpoint (URL) que AWS genera para tu nueva base de datos.
@@ -93,6 +93,13 @@ En resumen, la transición de Local a Cloud no implica un rediseño de la arquit
 
 ### Herramienta de Transición: Infraestructura como Código (IaC)
 
-¿Cómo materializamos este cambio en el mundo real? Mientras localmente usamos `docker-compose up` para "prender" todo, en AWS no daremos clics en la consola. 
+¿Cómo materializamos este cambio en el mundo real? Mientras localmente usamos `docker compose up` para "prender" todo, en AWS no daremos clics en la consola. 
 
 Se utilizarán herramientas como **Terraform** o **AWS CDK** para declarar estos recursos en código. De esta manera, construir la base de datos en RDS y levantar el clúster de ECS será tan reproducible y automatizado como levantar los contenedores en tu Mac.
+
+Guía operativa recomendada para ejecutar Terraform en este repo:
+- `docs/04-guides/GUIDE-DEPLOY-AWS.md` (incluye comandos `init/validate`, ruta absoluta y troubleshooting de `-chdir`).
+- `docs/04-guides/GUIDE-TERRAFORM-BASELINE-Y-ROADMAP.md` (detalle completo de estado actual + próximos pasos de implementación).
+
+Checklist formal previo a despliegue:
+- `docs/04-guides/GUIDE-DEPLOY-AWS.md` -> sección **Checklist Go/No-Go (Previo a Push y Nube)**.

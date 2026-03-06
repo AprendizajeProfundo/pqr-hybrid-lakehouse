@@ -31,7 +31,7 @@
         {
           "properties": {
             "external_id": {"type": "string"},
-            "source_channel": {"type": "string", "enum": ["email", "webform", "chat", "call"]},
+            "source_channel": {"type": "string", "enum": ["email", "webform", "chat", "call", "other_digital"]},
             "pqrs_type": {"type": "string", "enum": ["P", "Q", "R", "S"]},
             "priority": {"type": "string", "enum": ["alta", "media", "baja"]},
             "geo_region": {"type": "string"},

@@ -66,7 +66,7 @@ Raw (JSONL) → Bronze (Parquet) → Silver (Curado) → Gold (KPIs) → Postgre
 1. Instalar Docker y Docker Compose.
 2. Clonar repo y navegar a `infra/docker/`.
 3. Configurar `.env` con credenciales locales.
-4. Ejecutar `docker-compose up -d`.
+4. Ejecutar `docker compose up -d`.
 5. Verificar servicios: Postgres, RustFS (almacenamiento nativo), Dask, Prefect, Grafana, Streamlit, Metabase.
 
 **Tiempo estimado:** 30 min.  

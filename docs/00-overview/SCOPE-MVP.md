@@ -39,10 +39,10 @@ Only Email (synthetic generation).
 - SLA breach simulation (configurable 7–12%)
 
 ### 2.5 Governance
-- meta.runs
+- meta.etl_runs
 - meta.datasets
 - meta.lineage
-- meta.quality_checks
+- meta.data_quality
 
 ### 2.6 Operational PQRS Model
 - core.tickets

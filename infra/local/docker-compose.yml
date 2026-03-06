@@ -1,30 +1,47 @@
-version: '3.8'
+x-service-defaults: &service_defaults
+  restart: unless-stopped
+  networks:
+    - pqr-network
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 services:
   # Control Plane: Postgres (Supabase-like)
   postgres:
-    image: postgres:15
+    <<: *service_defaults
+    image: postgis/postgis:15-3.4
+    platform: linux/amd64
+    init: true
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./volumes/postgres-data:/var/lib/postgresql/data
-      - ./init-scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     ports:
       - "5432:5432"
-    networks:
-      - pqr-network
 
   # Data Plane: RustFS (S3-native)
   rustfs:
+    <<: *service_defaults
     image: rustfs/rustfs:latest # replace with your build or registry image
+    platform: linux/arm64/v8
     container_name: rustfs
-    restart: unless-stopped
+    init: true
 
     ports:
       - "9000:9000" # S3 API endpoint (adjust if different)
-      # - "9001:9001" # admin/console port if your RustFS build provides one
+      - "9001:9001" # admin/console port if your RustFS build provides one
 
     environment:
       # root credentials – names depend on RustFS release, update accordingly
@@ -35,56 +52,68 @@ services:
     volumes:
       - ./volumes/rustfs-data:/data # for dev/POC; in prod bind-mount a real disk/RAID
 
-    networks:
-      - pqr-network
     #command: ["server", "/data"]  # uncomment/adjust if required by your RustFS version
 
     # Compute Plane: Dask Scheduler
   dask-scheduler:
+    <<: *service_defaults
     image: daskdev/dask:latest
+    init: true
     command: dask-scheduler --host 0.0.0.0 --port 8786
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8786), 2); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     ports:
       - "8786:8786"
       - "8787:8787"
-    networks:
-      - pqr-network
 
   # Compute Plane: Dask Workers
   dask-worker:
+    <<: *service_defaults
     image: daskdev/dask:latest
-    command: dask-worker ${DASK_SCHEDULER_ADDRESS} --nprocs 2 --nthreads 1
+    init: true
+    # Scale with: docker compose up -d --scale dask-worker=2
+    command: dask-worker ${DASK_SCHEDULER_ADDRESS} --nworkers 2 --nthreads 1
     depends_on:
-      - dask-scheduler
-    deploy:
-      replicas: 2
-    networks:
-      - pqr-network
+      dask-scheduler:
+        condition: service_healthy
 
   # Orquestación: Prefect Server
   prefect-server:
-    image: prefecthq/prefect:latest
+    <<: *service_defaults
+    image: prefecthq/prefect:3-latest
+    init: true
     platform: linux/amd64
-    command: prefect server start --host 0.0.0.0
+    command: prefect server start --host 0.0.0.0 --port 4200
     environment:
       PREFECT_API_URL: ${PREFECT_API_URL}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 4200), 2); s.close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 25s
     ports:
       - "4200:4200"
-    networks:
-      - pqr-network
 
   # Observabilidad: Prometheus
   prometheus:
+    <<: *service_defaults
     image: prom/prometheus
+    init: true
     volumes:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-    networks:
-      - pqr-network
 
   # Observabilidad: Grafana
   grafana:
+    <<: *service_defaults
     image: grafana/grafana
+    init: true
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
@@ -95,23 +124,28 @@ services:
       - ./configs/grafana-provisioning/dashboards:/etc/grafana/provisioning/dashboards
     ports:
       - "3001:3000"
-    networks:
-      - pqr-network
 
   # Serving: Streamlit (Dashboard Ejecutivo)
   streamlit:
+    <<: *service_defaults
     build: ../../apps/dashboard-streamlit # Asume Dockerfile en apps/
+    init: true
     ports:
       - "${STREAMLIT_PORT}:8501"
     environment:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-    networks:
-      - pqr-network
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
 
   # Serving: Metabase (BI Autoservicio)
   metabase:
+    <<: *service_defaults
     image: metabase/metabase
+    init: true
     environment:
       MB_DB_TYPE: postgres
       MB_DB_HOST: postgres
@@ -122,9 +156,8 @@ services:
     ports:
       - "${METABASE_PORT}:3000"
     depends_on:
-      - postgres
-    networks:
-      - pqr-network
+      postgres:
+        condition: service_healthy
 
 networks:
   pqr-network:

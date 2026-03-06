@@ -1,5 +1,7 @@
 # Guía de Clase: Arquitectura Híbrida Lakehouse para PQRS (4 Horas)
 
+> Operación de laboratorio actualizada: usa [GUIDE-OPERACION-LOCAL-COMANDOS.md](./GUIDE-OPERACION-LOCAL-COMANDOS.md) para comandos de arranque/parada y recuperación.
+
 **Objetivo:** Introducir a los estudiantes al diseño, propósito y levantamiento local de una arquitectura de datos moderna K8s-ready, separando conceptualmente almacenamiento, cómputo, control y visualización.
 
 **Duración:** 4 horas académicas.
@@ -76,7 +78,7 @@
 
 2. **Despliegue Local (20 min)**
    - [👉 Ir a la Guía Paso a Paso Práctica](../../infra/docker/GUIA-INFRA-LOCAL-DOCKER.md)
-   - Ejecución de `docker-compose up -d`.
+   - Ejecución de `docker compose up -d`.
    - Lectura de logs y resolución de problemas comunes (puertos ocupados, RAM).
 
 3. **Verificación de Servicios (20 min)**

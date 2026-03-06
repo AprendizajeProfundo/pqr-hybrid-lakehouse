@@ -31,7 +31,7 @@ The system enforces a strict separation of concerns across architectural planes.
 
 - Authentication & RBAC  
 - Operational state (`core.tickets`, `core.ticket_events`, `core.messages`)  
-- Governance metadata (`meta.runs`, `meta.lineage`, `meta.quality_checks`)  
+- Governance metadata (`meta.etl_runs`, `meta.lineage`, `meta.data_quality`)  
 - Serving layer (`gold_*` datasets exposed to BI)  
 
 The Control Plane governs the system but does not store historical raw data.

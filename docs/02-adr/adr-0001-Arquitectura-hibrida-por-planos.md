@@ -36,7 +36,7 @@ Adoptar una arquitectura por planos:
 - Diseño listo para escalar sin re-trabajo conceptual.
 
 **Negativas**
-- Más servicios que un demo simple; requiere docker-compose bien mantenido.
+- Más servicios que un demo simple; requiere docker compose bien mantenido.
 - Requiere disciplina en contratos, particiones y meta-registros.
 
 ## Notas de implementación

@@ -2,11 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Instalar Streamlit
-RUN pip install --no-cache-dir streamlit pandas
+# Instalar dependencias de dashboard
+RUN pip install --no-cache-dir streamlit pandas psycopg2-binary
 
-# Copiar nuestra aplicación básica
+# Copiar aplicación
 COPY app.py .
+COPY sql ./sql
 
 # Exponer el puerto por el que se comunica Streamlit
 EXPOSE 8501

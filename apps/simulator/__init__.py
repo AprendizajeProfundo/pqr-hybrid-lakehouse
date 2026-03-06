@@ -1,0 +1,1 @@
+"""Synthetic data simulator package."""

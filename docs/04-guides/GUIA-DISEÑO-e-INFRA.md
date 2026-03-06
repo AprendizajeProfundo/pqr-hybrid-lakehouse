@@ -1,5 +1,7 @@
 # GUIA-DISEÑO-e-INFRA
 
+> Actualización 2026-03-04: comandos operativos consolidados en `docs/04-guides/GUIDE-OPERACION-LOCAL-COMANDOS.md`.
+
 ## Introducción
 
 Este repositorio presenta un **MVP de Lakehouse híbrido para PQRS** con enfoque académico: enseñar arquitectura de datos moderna, operación reproducible y diseño cloud-native sin depender de infraestructura compleja en la primera fase.
@@ -196,10 +198,10 @@ La operación depende de `.env` en `infra/local/` para:
 
 Comandos operativos típicos:
 
-- `docker-compose up -d`
-- `docker-compose ps`
-- `docker-compose logs -f <servicio>`
-- `docker-compose down`
+- `docker compose up -d`
+- `docker compose ps`
+- `docker compose logs -f <servicio>`
+- `docker compose down`
 
 ## 6) Migración local a cloud (enfoque conceptual)
 

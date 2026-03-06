@@ -1,5 +1,8 @@
 # Guía de Implementación: Infraestructura Local en Docker para PQR Hybrid Lakehouse
 
+> Actualización 2026-03-04: para ejecución de estudiantes usa primero `docs/04-guides/GUIDE-OPERACION-LOCAL-COMANDOS.md`. Esta guía se mantiene como contexto de arquitectura e implementación.
+> Nota: los snippets YAML de este documento son de referencia pedagógica; la fuente de verdad operativa es `infra/local/docker-compose.yml` y `infra/local/docker-compose.supabase.yml`.
+
 **Versión:** 1.0  
 **Fecha:** 2026-02-25  
 **Basado en:** ADR-0001, ADR-0003, ADR-0004, ADR-0006, ADR-0010, ADR-0012  
@@ -14,7 +17,7 @@ Esta guía detalla los pasos para implementar la infraestructura local usando Do
 
 ## Paso 1: Instalar y Verificar Docker
 1. Instala Docker Desktop (macOS) o Docker Engine (Linux).
-2. Verifica: `docker --version` y `docker-compose --version`.
+2. Verifica: `docker --version` y `docker compose --version`.
 3. Inicia Docker Desktop si es necesario.
 
 ## Paso 2: Crear Estructura de Directorios
@@ -42,7 +45,7 @@ Crea `infra/local/.env`:
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=localdev123
 POSTGRES_DB=pqr_lakehouse
-SUPABASE_URL=http://localhost:5432
+SUPABASE_URL=http://localhost:8000
 SUPABASE_ANON_KEY=local-anon-key
 
 # Data Plane
@@ -52,7 +55,7 @@ RUSTFS_ENDPOINT=http://localhost:9000
 BUCKET_NAME=pqr-lakehouse
 
 # Compute Plane
-DASK_SCHEDULER_ADDRESS=tcp://scheduler:8786
+DASK_SCHEDULER_ADDRESS=tcp://dask-scheduler:8786
 PREFECT_API_URL=http://localhost:4200/api
 
 # Observability
@@ -77,7 +80,7 @@ version: '3.8'
 services:
   # Control Plane: Postgres (Supabase-like)
   postgres:
-    image: postgres:15
+    image: postgis/postgis:15-3.4
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -123,18 +126,18 @@ services:
   # Compute Plane: Dask Workers
   dask-worker:
     image: daskdev/dask:latest
-    command: dask-worker ${DASK_SCHEDULER_ADDRESS} --nprocs 2 --nthreads 1
+    command: dask-worker ${DASK_SCHEDULER_ADDRESS} --nworkers 2 --nthreads 1
     depends_on:
       - dask-scheduler
-    deploy:
-      replicas: 2
+    # En Docker Compose local escalar con:
+    # docker compose up -d --scale dask-worker=2
     networks:
       - pqr-network
 
   # Orquestación: Prefect Server
   prefect-server:
-    image: prefecthq/prefect:latest
-    command: prefect server start --host 0.0.0.0
+    image: prefecthq/prefect:3-latest
+    command: prefect server start --host 0.0.0.0 --port 4200
     environment:
       PREFECT_API_URL: ${PREFECT_API_URL}
     ports:
@@ -372,8 +375,8 @@ Más adelante, cuando entres a la interfaz de Grafana y armes tu primer dashboar
 
 ## Paso 7: Levantar la Infraestructura
 1. Navega a `infra/local/`.
-2. Ejecuta: `docker-compose up -d`.
-3. Verifica: `docker-compose ps`.
+2. Ejecuta: `docker compose up -d`.
+3. Verifica: `docker compose ps`.
 4. Accede:
    - Postgres: `psql -h localhost -U postgres -d pqr_lakehouse`
    - RustFS: http://localhost:9001 (login: rustfsadmin/rustfsadmin)

@@ -1,0 +1,53 @@
+@startuml
+title PQR Hybrid Lakehouse - Secuencia Operativa Local (Boot + Verificacion)
+skinparam shadowing false
+
+actor Dev as "Usuario/Dev"
+participant Compose as "docker compose"
+participant PG as "postgres"
+participant DaskS as "dask-scheduler"
+participant DaskW as "dask-worker"
+participant Prefect as "prefect-server"
+participant Supa as "supabase overlay\n(kong/auth/rest/meta/studio)"
+participant Obs as "prometheus/grafana"
+participant Browser as "Navegador"
+
+Dev -> Compose : up -d --build --remove-orphans
+Compose -> PG : iniciar + init scripts SQL
+PG --> Compose : healthy
+
+Compose -> DaskS : iniciar scheduler
+DaskS --> Compose : healthy
+Compose -> DaskW : iniciar workers\n(depends_on scheduler healthy)
+
+Compose -> Prefect : iniciar server (4200)
+Prefect --> Compose : healthy
+
+Compose -> Supa : iniciar kong/auth/rest/meta/studio
+Supa --> Compose : running/healthy*
+
+Compose -> Obs : iniciar prometheus + grafana
+Obs --> Compose : running
+
+Dev -> Compose : ps
+Compose --> Dev : todos Up + healthy clave
+
+Dev -> Browser : abrir UIs
+Browser -> Prefect : http://localhost:4200
+Prefect --> Browser : 200
+Browser -> Supa : http://localhost:3002
+Supa --> Browser : 307/200 (normal)
+Browser -> DaskS : http://localhost:8787
+DaskS --> Browser : 200
+Browser -> Obs : http://localhost:3001
+Obs --> Browser : 200
+
+Dev -> Compose : run pipelines (Prefect/Dask)
+DaskW -> PG : carga bronze/silver/gold + meta
+
+note right of Supa
+Studio puede quedar "unhealthy" intermitente
+si responde en browser (307/200), operativo.
+end note
+
+@enduml

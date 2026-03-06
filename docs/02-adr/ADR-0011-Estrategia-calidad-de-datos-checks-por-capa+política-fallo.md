@@ -10,7 +10,7 @@ El sistema debe ser confiable y operable:
 - Proveer evidencia de calidad por corrida
 
 ## Decisión
-Implementar checks mínimos por etapa y registrar resultados en `meta.quality_checks`.
+Implementar checks mínimos por etapa y registrar resultados en `meta.data_quality`.
 
 Checks típicos:
 - Conteos in/out

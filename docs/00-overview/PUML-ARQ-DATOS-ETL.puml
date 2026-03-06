@@ -1,0 +1,52 @@
+@startuml
+title PQR Hybrid Lakehouse - Flujo de Datos ETL (Raw -> Bronze -> Silver -> Gold)
+skinparam shadowing false
+skinparam packageStyle rectangle
+left to right direction
+
+actor "Simulador / Fuente" as Source
+component "apps/simulator/\ngenerate_pqrs_data.py" as Sim
+
+database "RustFS S3\nbucket raw/" as Raw
+component "Pipeline 1\nraw_to_bronze.py\nnormalize_event()" as P1
+database "Postgres bronze.pqrs_events" as Bronze
+
+component "Pipeline 2\nbronze_to_silver.py\nbuild_ticket_record()" as P2
+database "Postgres silver.tickets\nsilver.messages\nsilver.status_events\nsilver.attachments?" as Silver
+
+component "Pipeline 3\ngold_to_postgres.py\nbuild_upsert_statement()" as P3
+database "Postgres gold.kpi_*\n(kpi_volume_daily,\nkpi_backlog_daily,\nkpi_sla_daily...)" as Gold
+
+database "Postgres meta.etl_runs\nmeta.data_quality" as Meta
+component "Prefect Flow" as Flow
+component "Dask Cluster" as Dask
+
+Source --> Sim : genera eventos
+Sim --> Raw : escribe JSONL/Parquet raw
+
+Flow --> Dask : ejecuta tasks distribuidas
+Dask --> P1
+Dask --> P2
+Dask --> P3
+
+P1 --> Raw : lee raw objects
+P1 --> Bronze : carga eventos normalizados
+P1 --> Meta : registra run + conteos
+
+P2 --> Bronze : lee eventos
+P2 --> Silver : curacion/enriquecimiento
+P2 --> Meta : validaciones calidad
+
+P3 --> Silver : agrega medidas
+P3 --> Gold : upsert KPIs
+P3 --> Meta : estado final del run
+
+note bottom
+Capas:
+Raw = objeto inmutable de entrada
+Bronze = eventos normalizados
+Silver = entidades curadas y trazables
+Gold = metricas agregadas para BI/dashboard
+end note
+
+@enduml

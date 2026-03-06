@@ -1,0 +1,79 @@
+@startuml
+title PQR Hybrid Lakehouse - Contexto General (Local Docker)
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+left to right direction
+
+actor "Analista / Estudiante" as User
+actor "Equipo de Datos" as DataTeam
+cloud "Fuentes Operacionales\n(PQRS JSONL / APIs / CSV)" as Sources
+cloud "Navegador Web" as Browser
+
+rectangle "PQR Hybrid Lakehouse (Entorno Local)" as System {
+  package "Control Plane" {
+    [PostgreSQL + PostGIS\nSchemas: auth/meta/bronze/silver/gold] as PG
+  }
+
+  package "Data Plane" {
+    [RustFS\nS3-compatible Object Storage] as S3
+  }
+
+  package "Compute Plane" {
+    [Dask Scheduler] as DaskS
+    [Dask Workers] as DaskW
+  }
+
+  package "Orquestacion" {
+    [Prefect Server] as Prefect
+  }
+
+  package "Supabase Overlay" {
+    [Kong API Gateway] as Kong
+    [GoTrue Auth] as Auth
+    [PostgREST] as Rest
+    [Postgres Meta] as Meta
+    [Supabase Studio] as Studio
+  }
+
+  package "Observabilidad" {
+    [Prometheus] as Prom
+    [Grafana] as Grafana
+  }
+
+  package "Serving y Analitica" {
+    [Streamlit] as Streamlit
+    [Metabase] as Metabase
+  }
+}
+
+Sources --> S3 : Eventos raw
+DataTeam --> Prefect : Ejecuta / programa flows
+Prefect --> DaskS : Dispara jobs
+DaskS --> DaskW : Distribuye tareas
+DaskW --> S3 : Lee raw/escribe parquet
+DaskW --> PG : Carga Bronze/Silver/Gold\n+ metadatos/calidad
+
+Kong --> Auth : /auth
+Kong --> Rest : /rest/v1
+Studio --> Meta : introspeccion DB
+Meta --> PG : catalogo SQL
+Rest --> PG : lectura/escritura REST
+Auth --> PG : usuarios/sesiones
+
+Prom --> DaskS : scrape /metrics
+Grafana --> Prom : dashboards
+
+Streamlit --> PG : consultas KPIs
+Metabase --> PG : BI SQL
+
+User --> Browser
+Browser --> Prefect : UI (4200)
+Browser --> Studio : UI (3002)
+Browser --> Grafana : UI (3001)
+Browser --> Metabase : UI (3000)
+Browser --> Streamlit : UI (8501)
+Browser --> DaskS : Dashboard (8787)
+Browser --> Kong : API REST (8000)
+
+@enduml

@@ -1,0 +1,66 @@
+@startuml
+title PQR Hybrid Lakehouse - Red, Puertos y Endpoints Locales
+skinparam shadowing false
+skinparam packageStyle rectangle
+left to right direction
+
+actor "Usuario local" as U
+rectangle "Host (Mac/Linux)\nlocalhost" as Host {
+  [4200 Prefect UI] as h4200
+  [8787 Dask Dashboard] as h8787
+  [3001 Grafana] as h3001
+  [3000 Metabase] as h3000
+  [8501 Streamlit] as h8501
+  [3002 Supabase Studio] as h3002
+  [8000 Kong HTTP /rest/v1] as h8000
+  [9443 Kong HTTPS] as h9443
+  [5432 Postgres] as h5432
+  [9000 RustFS S3 API] as h9000
+  [9001 RustFS Console*] as h9001
+  [9090 Prometheus] as h9090
+  [8786 Dask Scheduler] as h8786
+}
+
+node "Docker Network: pqr-network (bridge)" as Net {
+  [prefect-server:4200] as c4200
+  [dask-scheduler:8787] as c8787
+  [dask-scheduler:8786] as c8786
+  [grafana:3000] as c3001
+  [metabase:3000] as c3000
+  [streamlit:8501] as c8501
+  [supabase-studio:3000] as c3002
+  [kong:8000] as c8000
+  [kong:8443] as c9443
+  [postgres:5432] as c5432
+  [rustfs:9000] as c9000
+  [rustfs:9001] as c9001
+  [prometheus:9090] as c9090
+}
+
+U --> Host
+h4200 --> c4200
+h8787 --> c8787
+h8786 --> c8786
+h3001 --> c3001
+h3000 --> c3000
+h8501 --> c8501
+h3002 --> c3002
+h8000 --> c8000
+h9443 --> c9443
+h5432 --> c5432
+h9000 --> c9000
+h9001 --> c9001
+h9090 --> c9090
+
+note right of h9001
+*Puede no estar disponible segun
+la imagen/build de RustFS.
+end note
+
+note bottom
+Conflictos comunes:
+8443 en host -> resuelto usando 9443:8443.
+DOCKER_DEFAULT_PLATFORM global puede romper imagenes mixtas arm64/amd64.
+end note
+
+@enduml

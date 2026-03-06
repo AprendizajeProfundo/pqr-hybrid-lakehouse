@@ -36,5 +36,5 @@ Política de idempotencia:
 - Overhead de metadatos (aceptable y didáctico).
 
 ## Notas de implementación
-- Registrar en `meta.runs` (start/end/status/params).
+- Registrar en `meta.etl_runs` (start/end/status/params).
 - Guardar manifest en RustFS junto a Raw.

@@ -14,7 +14,7 @@ System_Boundary(sys, "PQR Hybrid Lakehouse MVP") {
   ' CONTROL PLANE (Gobierno + Serving)
   ' =============================
   Container(supabase, "Supabase (Auth/API)", "Supabase + PostgreSQL", "Plano de control: autenticacion/RBAC, gobierno (meta.*), operacion PQRS (core.*) y capa de serving (gold_*).")
-  ContainerDb(pg, "PostgreSQL", "PostgreSQL", "Base transaccional y analitica ligera: meta.runs/lineage/checks, core.tickets/events/messages, tablas/vistas gold_* para BI.")
+  ContainerDb(pg, "PostgreSQL", "PostgreSQL", "Base transaccional y analitica ligera: meta.etl_runs/lineage/checks, core.tickets/events/messages, tablas/vistas gold_* para BI.")
 
   Rel(supabase, pg, "Lee/Escribe", "SQL")
 

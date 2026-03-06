@@ -13,7 +13,7 @@ Responsabilidades:
 
 - Autenticación y RBAC
 - Estado operativo (core.*)
-- Metadatos de gobierno (meta.runs, meta.lineage, meta.quality_checks)
+- Metadatos de gobierno (meta.etl_runs, meta.lineage, meta.data_quality)
 - Capa de serving (gold_*)
 
 Regla:
@@ -152,7 +152,7 @@ Cada corrida incluye:
 - run_id (UUID)
 - seed determinístico
 - manifest.json
-- registro en meta.runs
+- registro en meta.etl_runs
 - version de modelo IA
 
 Principio:

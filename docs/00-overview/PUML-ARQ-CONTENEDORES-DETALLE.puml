@@ -1,0 +1,66 @@
+@startuml
+title PQR Hybrid Lakehouse - Contenedores y Dependencias (Docker Compose)
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+top to bottom direction
+
+package "Compose Base (docker-compose.yml)" {
+  [postgres\npostgis/postgis:15-3.4] as pg
+  [rustfs\nrustfs/rustfs:latest] as rustfs
+  [dask-scheduler\ndaskdev/dask:latest] as dasks
+  [dask-worker\ndaskdev/dask:latest] as daskw
+  [prefect-server\nprefecthq/prefect:3-latest] as prefect
+  [prometheus\nprom/prometheus] as prom
+  [grafana\ngrafana/grafana] as grafana
+  [streamlit\nlocal-streamlit] as streamlit
+  [metabase\nmetabase/metabase] as metabase
+}
+
+package "Compose Overlay Supabase (docker-compose.supabase.yml)" {
+  [kong\nkong:2.8.1] as kong
+  [auth\nsupabase/gotrue:v2.186.0] as auth
+  [rest\npostgrest/postgrest:v12.2.3] as rest
+  [meta\nsupabase/postgres-meta:v0.95.2] as meta
+  [supabase-studio\nsupabase/studio:2025.10.01-sha-8460121] as studio
+}
+
+database "postgres\nschemas: auth/meta/bronze/silver/gold" as db
+storage "rustfs /data" as obj
+
+pg --> db
+rustfs --> obj
+
+daskw --> rustfs : read/write objects
+daskw --> pg : insert/upsert curated data
+dasks --> daskw : scheduling
+prefect --> dasks : orchestration
+prefect --> pg : metadata/state
+
+prom --> dasks : scrape metrics
+grafana --> prom : dashboards
+
+streamlit --> pg : kpi queries
+metabase --> pg : sql exploration
+
+kong --> auth : /auth/*
+kong --> rest : /rest/v1/*
+studio --> meta : schema browser
+meta --> pg : metadata SQL
+auth --> pg : auth schema
+rest --> pg : REST over tables/views
+
+auth ..> pg : depends_on healthy
+rest ..> pg : depends_on healthy
+meta ..> pg : depends_on healthy
+metabase ..> pg : depends_on healthy
+daskw ..> dasks : depends_on healthy
+studio ..> kong : depends_on
+studio ..> meta : depends_on
+
+note right of studio
+OPENAI_API_KEY opcional para AI Assistant
+en Studio.
+end note
+
+@enduml

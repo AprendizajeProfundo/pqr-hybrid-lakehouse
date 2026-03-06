@@ -1,0 +1,14 @@
+name: pqr-lakehouse
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - pytest
+      - pyyaml
+      - boto3
+      - psycopg2-binary
+      - prefect
+      - streamlit
+      - pandas

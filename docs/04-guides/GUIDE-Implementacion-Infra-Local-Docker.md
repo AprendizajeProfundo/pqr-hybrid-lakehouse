@@ -1,5 +1,7 @@
 # 📋 Guía de Implementación: Infraestructura Local en Docker
 
+> Actualización 2026-03-04: para comandos de operación diaria usa primero [GUIDE-OPERACION-LOCAL-COMANDOS.md](./GUIDE-OPERACION-LOCAL-COMANDOS.md). Esta guía se mantiene como contexto de implementación.
+
 **⚠️ Nota:** Esta es la **versión educativa**. Para detalles técnicos profundos, consulta `infra/docker/GUIA-INFRA-LOCAL-DOCKER.md`.
 
 ---
@@ -24,7 +26,7 @@ Esta guía detalla los pasos para implementar la infraestructura local usando Do
 ## Paso 1: Instalar y Verificar Docker
 
 1. Instala Docker Desktop (macOS) o Docker Engine (Linux).
-2. Verifica: `docker --version` y `docker-compose --version`.
+2. Verifica: `docker --version` y `docker compose --version`.
 3. Inicia Docker Desktop si es necesario.
 
 ---
@@ -60,7 +62,7 @@ Crea `infra/local/.env`:
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=localdev123
 POSTGRES_DB=pqr_lakehouse
-SUPABASE_URL=http://localhost:5432
+SUPABASE_URL=http://localhost:8000
 SUPABASE_ANON_KEY=local-anon-key
 
 # Data Plane
@@ -70,7 +72,7 @@ RUSTFS_ENDPOINT=http://localhost:9000
 BUCKET_NAME=pqr-lakehouse
 
 # Compute Plane
-DASK_SCHEDULER_ADDRESS=tcp://scheduler:8786
+DASK_SCHEDULER_ADDRESS=tcp://dask-scheduler:8786
 PREFECT_API_URL=http://localhost:4200/api
 
 # Observability
@@ -168,12 +170,12 @@ Agrega ficheros JSON de dashboards aquí. Ejemplos:
 
 2. Levanta los contenedores:
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 3. Verifica el estado:
    ```bash
-   docker-compose ps
+   docker compose ps
    ```
 
    Resultado esperado:
@@ -214,7 +216,7 @@ Una vez levantados, accede a cada servicio:
 ### Conectar a PostgreSQL
 
 ```bash
-docker-compose exec postgres psql -U postgres -d pqr_lakehouse
+docker compose exec postgres psql -U postgres -d pqr_lakehouse
 ```
 
 Dentro del shell `psql`:
@@ -244,9 +246,9 @@ aws --endpoint-url=http://localhost:9000 --profile local s3 ls
 ### Ver logs de un servicio
 
 ```bash
-docker-compose logs -f postgres       # Postgres
-docker-compose logs -f dask-scheduler # Dask
-docker-compose logs -f prefect-server # Prefect
+docker compose logs -f postgres       # Postgres
+docker compose logs -f dask-scheduler # Dask
+docker compose logs -f prefect-server # Prefect
 ```
 
 ---
@@ -254,14 +256,14 @@ docker-compose logs -f prefect-server # Prefect
 ## Paso 10: Parar la Infraestructura
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 **⚠️ Nota:** Los datos persisten en `./volumes/` incluso después de parar.
 
 Para limpiar todo (incluyendo datos):
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ---
@@ -301,12 +303,12 @@ POSTGRES_PORT=5433
 
 ### Contenedor no arranca
 ```bash
-docker-compose logs <service>
-docker-compose up <service>  # Ver logs en tiempo real
+docker compose logs <service>
+docker compose up <service>  # Ver logs en tiempo real
 ```
 
 ### Sin acceso a RustFS
-- Verifica que rustfs está corriendo: `docker-compose ps rustfs`
+- Verifica que rustfs está corriendo: `docker compose ps rustfs`
 - Revisa credenciales en `.env`
 - Prueba: `curl -u rustfsadmin:rustfsadmin http://localhost:9000/`  # endpoint S3 de RustFS (ya no existe /minio).
 

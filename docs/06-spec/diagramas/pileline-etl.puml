@@ -61,7 +61,7 @@ DUCKDB --> SILVER : OLAP / validacion\n(lectura Parquet)
 DUCKDB --> GOLD : OLAP / exploracion\n(lectura Parquet)
 
 GOLD --> PG : carga gold_* (serving)
-PREFECT --> PG : registra meta.runs\n(meta.*)
+PREFECT --> PG : registra meta.etl_runs\n(meta.*)
 
 STREAMLIT --> PG : consulta KPIs\n(SQL)
 METABASE --> PG : explora gold_*\n(SQL)

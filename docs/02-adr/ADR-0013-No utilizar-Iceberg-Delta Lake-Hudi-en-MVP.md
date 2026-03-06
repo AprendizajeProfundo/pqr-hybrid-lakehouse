@@ -103,7 +103,7 @@ El MVP implementa reproducibilidad mediante:
 - `manifest.json`
 - particiones por run
 - control de carga a Postgres
-- registros en `meta.runs`
+- registros en `meta.etl_runs`
 
 Para el alcance del proyecto:
 

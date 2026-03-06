@@ -1,0 +1,138 @@
+@startuml
+title PQR Hybrid Lakehouse - Modelo Logico de Esquemas PostgreSQL
+skinparam shadowing false
+skinparam linetype ortho
+hide methods
+
+package "auth (Supabase GoTrue)" {
+  class "auth.*" as auth_schema {
+    tablas internas de autenticacion
+  }
+}
+
+package "meta" {
+  class "etl_runs" as etl_runs {
+    +run_id : uuid (PK)
+    status : varchar
+    started_at : timestamp
+    finished_at : timestamp
+    raw_objects_count : int
+    bronze_rows : int
+    silver_rows : int
+    gold_rows : int
+  }
+  class "data_quality" as data_quality {
+    +id : serial (PK)
+    run_id : uuid (FK)
+    dataset : varchar
+    check_name : varchar
+    result : varchar
+    value : numeric
+    threshold : numeric
+  }
+}
+
+package "bronze" {
+  class "pqrs_events" as pqrs_events {
+    +event_id : uuid (PK)
+    ticket_id : uuid
+    source_channel : varchar
+    event_type : varchar
+    ts : timestamp
+    data : jsonb
+    run_id : uuid (FK)
+  }
+}
+
+package "silver" {
+  class "tickets" as tickets {
+    +ticket_id : uuid (PK)
+    external_id : varchar
+    source_channel : varchar
+    pqrs_type : char(1)
+    priority : varchar
+    current_status : varchar
+    created_at : timestamp
+    closed_at : timestamp
+    run_id : uuid (FK)
+  }
+
+  class "messages" as messages {
+    +message_id : uuid (PK)
+    ticket_id : uuid (FK)
+    ts : timestamp
+    role : varchar
+    text : text
+    run_id : uuid (FK)
+  }
+
+  class "status_events" as status_events {
+    +event_id : uuid (PK)
+    ticket_id : uuid (FK)
+    ts : timestamp
+    status_from : varchar
+    status_to : varchar
+    actor_role : varchar
+    run_id : uuid (FK)
+  }
+
+  class "preclassification" as preclassification {
+    +ticket_id : uuid (PK*)
+    +run_id : uuid (PK*)
+    +model_version : varchar (PK*)
+    model_type : varchar
+    predicted_type : char(1)
+    predicted_priority : varchar
+    score : numeric
+    explain_json : jsonb
+  }
+}
+
+package "gold" {
+  class "kpi_volume_daily" as kpi_volume {
+    +day : date (PK*)
+    +channel : varchar (PK*)
+    +pqrs_type : char(1) (PK*)
+    tickets_count : int
+    run_id : uuid (FK)
+  }
+
+  class "kpi_backlog_daily" as kpi_backlog {
+    +day : date (PK*)
+    +pqrs_type : char(1) (PK*)
+    +region : varchar (PK*)
+    backlog_count : int
+    run_id : uuid (FK)
+  }
+
+  class "kpi_sla_daily" as kpi_sla {
+    +day : date (PK*)
+    +pqrs_type : char(1) (PK*)
+    within_sla_pct : numeric
+    overdue_count : int
+    avg_overdue_days : numeric
+    run_id : uuid (FK)
+  }
+}
+
+data_quality --> etl_runs : run_id
+pqrs_events --> etl_runs : run_id
+tickets --> etl_runs : run_id
+messages --> etl_runs : run_id
+status_events --> etl_runs : run_id
+preclassification --> etl_runs : run_id
+kpi_volume --> etl_runs : run_id
+kpi_backlog --> etl_runs : run_id
+kpi_sla --> etl_runs : run_id
+
+messages --> tickets : ticket_id
+status_events --> tickets : ticket_id
+preclassification --> tickets : ticket_id
+
+note bottom
+Pipeline logico:
+bronze.pqrs_events -> silver.* -> gold.kpi_*
+Trazabilidad transversal: meta.etl_runs.run_id
+end note
+
+@enduml
